@@ -1,0 +1,1650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Switzerland Regions Explorer - Interactive Map</title>
+    
+    <!-- Swiper CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css">
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Leaflet CSS for map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Custom CSS -->
+    <style>
+        /* Global Styles */
+        :root {
+            --primary-color: #DC143C; /* Swiss red */
+            --secondary-color: #FF0000;
+            --accent-color: #0056B3;
+            --success-color: #4CAF50;
+            --warning-color: #FFC107;
+            --text-color: #2C3E50;
+            --light-gray: #F8F9FA;
+            --medium-gray: #E9ECEF;
+            --dark-gray: #6C757D;
+            --shadow-sm: 0 2px 4px rgba(0,0,0,0.08);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.12);
+            --shadow-lg: 0 8px 24px rgba(0,0,0,0.16);
+            --transition-fast: 0.2s;
+            --transition-normal: 0.3s;
+            --transition-slow: 0.5s;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: var(--text-color);
+            background: linear-gradient(135deg, #F5F7FA 0%, #E9ECEF 100%);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        header {
+            background: white;
+            box-shadow: var(--shadow-sm);
+            position: relative;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: var(--dark-gray);
+            font-size: 1.1rem;
+            font-weight: 400;
+        }
+
+        /* Main Container */
+        .main-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+
+        /* Controls Bar */
+        .controls-bar {
+            background: white;
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-md);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .toggle-btn {
+            padding: 0.75rem 1.25rem;
+            border: 2px solid var(--medium-gray);
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .toggle-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .toggle-btn:hover::before {
+            left: 100%;
+        }
+
+        .toggle-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(220, 20, 60, 0.3);
+        }
+
+        .toggle-btn:hover:not(.active) {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .view-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--light-gray);
+            border-radius: 20px;
+            font-weight: 500;
+        }
+
+        .view-info i {
+            color: var(--primary-color);
+        }
+
+        /* Slider Container */
+        .swiper-container {
+            width: 100%;
+            height: 600px;
+            position: relative;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+            background: white;
+        }
+
+        .swiper-slide {
+            position: relative;
+            background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FA 100%);
+        }
+
+        /* Map Container */
+        .map-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .interactive-map {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Region Information */
+        .region-header {
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            box-shadow: var(--shadow-md);
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        .region-flag {
+            width: 40px;
+            height: 40px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .region-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        /* Information Panel */
+        .info-panel {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 1.5rem;
+            border-radius: 16px;
+            box-shadow: var(--shadow-lg);
+            max-width: 90%;
+            width: 400px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all var(--transition-normal) ease;
+            z-index: 15;
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.98);
+        }
+
+        .info-panel.visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(-10px);
+        }
+
+        .info-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .info-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .info-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .info-content {
+            color: var(--dark-gray);
+            line-height: 1.6;
+        }
+
+        .info-stats {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--medium-gray);
+        }
+
+        .stat-item {
+            flex: 1;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--dark-gray);
+            margin-top: 0.25rem;
+        }
+
+        /* Map Controls */
+        .map-controls {
+            position: absolute;
+            top: 100px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            z-index: 20;
+        }
+
+        .map-control-btn {
+            width: 44px;
+            height: 44px;
+            background: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: var(--primary-color);
+            box-shadow: var(--shadow-md);
+            transition: all var(--transition-fast);
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        .map-control-btn:hover {
+            transform: scale(1.1);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .map-control-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Navigation */
+        .swiper-button-next,
+        .swiper-button-prev {
+            color: var(--primary-color);
+            background: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            box-shadow: var(--shadow-md);
+            transition: all var(--transition-fast);
+        }
+
+        .swiper-button-next:hover,
+        .swiper-button-prev:hover {
+            transform: scale(1.1);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .swiper-button-next:after,
+        .swiper-button-prev:after {
+            font-size: 1.5rem;
+        }
+
+        /* Pagination */
+        .swiper-pagination {
+            bottom: 20px !important;
+        }
+
+        .swiper-pagination-bullet {
+            width: 10px;
+            height: 10px;
+            background: white;
+            opacity: 0.7;
+            border: 2px solid var(--primary-color);
+            transition: all var(--transition-fast);
+        }
+
+        .swiper-pagination-bullet-active {
+            background: var(--primary-color);
+            opacity: 1;
+            transform: scale(1.2);
+        }
+
+        /* Legend */
+        .legend {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+            box-shadow: var(--shadow-md);
+        }
+
+        .legend-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+
+        .legend-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+            border-radius: 8px;
+            transition: background var(--transition-fast);
+        }
+
+        .legend-item:hover {
+            background: var(--light-gray);
+        }
+
+        .legend-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            border: 2px solid white;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .legend-text {
+            font-size: 0.9rem;
+            color: var(--dark-gray);
+        }
+
+        /* Loading Animation */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--medium-gray);
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+            color: var(--dark-gray);
+            font-weight: 500;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .swiper-container {
+                height: 500px;
+            }
+
+            .controls-bar {
+                justify-content: center;
+                text-align: center;
+            }
+
+            .view-toggle {
+                justify-content: center;
+                width: 100%;
+            }
+
+            .toggle-btn {
+                padding: 0.6rem 1rem;
+                font-size: 0.9rem;
+            }
+
+            .region-header {
+                top: 20px;
+                padding: 0.75rem 1.5rem;
+            }
+
+            .region-name {
+                font-size: 1.1rem;
+            }
+
+            .info-panel {
+                width: 90%;
+                padding: 1rem;
+            }
+
+            .map-controls {
+                top: 80px;
+                right: 15px;
+            }
+
+            .map-control-btn {
+                width: 40px;
+                height: 40px;
+                font-size: 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .swiper-container {
+                height: 450px;
+            }
+
+            .toggle-btn {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.85rem;
+            }
+
+            .toggle-btn i {
+                font-size: 0.9rem;
+            }
+
+            .legend-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .info-stats {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .region-header {
+                padding: 0.5rem 1rem;
+            }
+
+            .region-flag {
+                width: 35px;
+                height: 35px;
+                font-size: 0.8rem;
+            }
+
+            .region-name {
+                font-size: 1rem;
+            }
+        }
+
+        /* Fade in animation */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        /* Leaflet Custom Styles */
+        .leaflet-container {
+            font-family: inherit;
+        }
+
+        .custom-popup {
+            font-family: inherit;
+            max-width: 250px;
+        }
+
+        .custom-popup h3 {
+            margin: 0 0 5px 0;
+            color: var(--primary-color);
+            font-size: 1.1rem;
+        }
+
+        .custom-popup p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: var(--dark-gray);
+        }
+
+        .custom-popup .popup-category {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            background: var(--light-gray);
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+
+        /* View-specific legend updates */
+        .legend.regions .legend-color:nth-child(1) { background-color: var(--primary-color); }
+        .legend.cities .legend-color:nth-child(1) { background-color: var(--accent-color); }
+        .legend.activities .legend-color:nth-child(1) { background-color: var(--success-color); }
+
+        /* Activity type icons */
+        .activity-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.9rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .activity-skiing { background: linear-gradient(135deg, #00BCD4, #0097A7); }
+        .activity-hiking { background: linear-gradient(135deg, #4CAF50, #388E3C); }
+        .activity-culture { background: linear-gradient(135deg, #9C27B0, #7B1FA2); }
+        .activity-water { background: linear-gradient(135deg, #2196F3, #1976D2); }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>Switzerland Explorer</h1>
+            <p class="subtitle">Discover regions, cities, and activities across Switzerland</p>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <!-- Controls Bar -->
+        <div class="controls-bar">
+            <div class="view-toggle">
+                <button class="toggle-btn active" data-view="regions">
+                    <i class="fas fa-map"></i> Regions
+                </button>
+                <button class="toggle-btn" data-view="cities">
+                    <i class="fas fa-city"></i> Cities
+                </button>
+                <button class="toggle-btn" data-view="activities">
+                    <i class="fas fa-hiking"></i> Activities
+                </button>
+            </div>
+            <div class="view-info">
+                <i class="fas fa-layer-group"></i>
+                <span id="view-count">7 Regions</span>
+            </div>
+        </div>
+
+        <!-- Main Slider -->
+        <div class="swiper-container">
+            <div class="swiper-wrapper">
+                <!-- Slide 1: Zurich Region -->
+                <div class="swiper-slide" data-region="zurich" 
+                     data-lat="47.3769" data-lng="8.5417" data-zoom="9">
+                    <div class="map-container">
+                        <div id="map-zurich" class="interactive-map"></div>
+                        
+                        <div class="region-header">
+                            <div class="region-flag">ZH</div>
+                            <div class="region-name">Zurich Region</div>
+                        </div>
+                        
+                        <!-- Map Controls -->
+                        <div class="map-controls">
+                            <button class="map-control-btn" onclick="zoomIn('zurich')">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button class="map-control-btn" onclick="zoomOut('zurich')">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <button class="map-control-btn" onclick="resetMap('zurich')">
+                                <i class="fas fa-compress"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Information Panel -->
+                        <div class="info-panel" id="info-panel-zurich">
+                            <div class="info-header">
+                                <div class="info-icon">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                </div>
+                                <div class="info-title">Zurich</div>
+                            </div>
+                            <div class="info-content">
+                                Switzerland's largest city and major financial center, known for its high quality of life and vibrant cultural scene.
+                            </div>
+                            <div class="info-stats">
+                                <div class="stat-item">
+                                    <div class="stat-value">1.55M</div>
+                                    <div class="stat-label">Population</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">1,729</div>
+                                    <div class="stat-label">km²</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">Zurich</div>
+                                    <div class="stat-label">Capital</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 2: Geneva Region -->
+                <div class="swiper-slide" data-region="geneva" 
+                     data-lat="46.2044" data-lng="6.1432" data-zoom="9">
+                    <div class="map-container">
+                        <div id="map-geneva" class="interactive-map"></div>
+                        
+                        <div class="region-header">
+                            <div class="region-flag">GE</div>
+                            <div class="region-name">Geneva Region</div>
+                        </div>
+                        
+                        <!-- Map Controls -->
+                        <div class="map-controls">
+                            <button class="map-control-btn" onclick="zoomIn('geneva')">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button class="map-control-btn" onclick="zoomOut('geneva')">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <button class="map-control-btn" onclick="resetMap('geneva')">
+                                <i class="fas fa-compress"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Information Panel -->
+                        <div class="info-panel" id="info-panel-geneva">
+                            <div class="info-header">
+                                <div class="info-icon">
+                                    <i class="fas fa-landmark"></i>
+                                </div>
+                                <div class="info-title">Geneva</div>
+                            </div>
+                            <div class="info-content">
+                                International diplomacy hub, home to the Red Cross and United Nations European headquarters.
+                            </div>
+                            <div class="info-stats">
+                                <div class="stat-item">
+                                    <div class="stat-value">500K</div>
+                                    <div class="stat-label">Population</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">282</div>
+                                    <div class="stat-label">km²</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">Geneva</div>
+                                    <div class="stat-label">Capital</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 3: Bern Region -->
+                <div class="swiper-slide" data-region="bern" 
+                     data-lat="46.9481" data-lng="7.4474" data-zoom="9">
+                    <div class="map-container">
+                        <div id="map-bern" class="interactive-map"></div>
+                        
+                        <div class="region-header">
+                            <div class="region-flag">BE</div>
+                            <div class="region-name">Bern Region</div>
+                        </div>
+                        
+                        <!-- Map Controls -->
+                        <div class="map-controls">
+                            <button class="map-control-btn" onclick="zoomIn('bern')">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button class="map-control-btn" onclick="zoomOut('bern')">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <button class="map-control-btn" onclick="resetMap('bern')">
+                                <i class="fas fa-compress"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Information Panel -->
+                        <div class="info-panel" id="info-panel-bern">
+                            <div class="info-header">
+                                <div class="info-icon">
+                                    <i class="fas fa-crown"></i>
+                                </div>
+                                <div class="info-title">Bern</div>
+                            </div>
+                            <div class="info-content">
+                                Capital of Switzerland, featuring a medieval old town that's a UNESCO World Heritage site.
+                            </div>
+                            <div class="info-stats">
+                                <div class="stat-item">
+                                    <div class="stat-value">1.04M</div>
+                                    <div class="stat-label">Population</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">5,959</div>
+                                    <div class="stat-label">km²</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">Bern</div>
+                                    <div class="stat-label">Capital</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 4: Swiss Alps Region -->
+                <div class="swiper-slide" data-region="alps" 
+                     data-lat="46.5197" data-lng="8.2544" data-zoom="8">
+                    <div class="map-container">
+                        <div id="map-alps" class="interactive-map"></div>
+                        
+                        <div class="region-header">
+                            <div class="region-flag">AL</div>
+                            <div class="region-name">Swiss Alps</div>
+                        </div>
+                        
+                        <!-- Map Controls -->
+                        <div class="map-controls">
+                            <button class="map-control-btn" onclick="zoomIn('alps')">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button class="map-control-btn" onclick="zoomOut('alps')">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <button class="map-control-btn" onclick="resetMap('alps')">
+                                <i class="fas fa-compress"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Information Panel -->
+                        <div class="info-panel" id="info-panel-alps">
+                            <div class="info-header">
+                                <div class="info-icon">
+                                    <i class="fas fa-mountain"></i>
+                                </div>
+                                <div class="info-title">Swiss Alps</div>
+                            </div>
+                            <div class="info-content">
+                                Home to iconic peaks like Matterhorn and Jungfrau, offering world-class skiing and breathtaking mountain scenery.
+                            </div>
+                            <div class="info-stats">
+                                <div class="stat-item">
+                                    <div class="stat-value">4,810m</div>
+                                    <div class="stat-label">Highest Peak</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">60%</div>
+                                    <div class="stat-label">Mountainous</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">200+</div>
+                                    <div class="stat-label">Ski Resorts</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 5: Ticino Region -->
+                <div class="swiper-slide" data-region="ticino" 
+                     data-lat="46.1881" data-lng="8.8446" data-zoom="9">
+                    <div class="map-container">
+                        <div id="map-ticino" class="interactive-map"></div>
+                        
+                        <div class="region-header">
+                            <div class="region-flag">TI</div>
+                            <div class="region-name">Ticino Region</div>
+                        </div>
+                        
+                        <!-- Map Controls -->
+                        <div class="map-controls">
+                            <button class="map-control-btn" onclick="zoomIn('ticino')">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button class="map-control-btn" onclick="zoomOut('ticino')">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <button class="map-control-btn" onclick="resetMap('ticino')">
+                                <i class="fas fa-compress"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Information Panel -->
+                        <div class="info-panel" id="info-panel-ticino">
+                            <div class="info-header">
+                                <div class="info-icon">
+                                    <i class="fas fa-sun"></i>
+                                </div>
+                                <div class="info-title">Ticino</div>
+                            </div>
+                            <div class="info-content">
+                                Italian-speaking southern Switzerland with Mediterranean flair, featuring Lake Lugano and charming towns like Bellinzona.
+                            </div>
+                            <div class="info-stats">
+                                <div class="stat-item">
+                                    <div class="stat-value">350K</div>
+                                    <div class="stat-label">Population</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">2,812</div>
+                                    <div class="stat-label">km²</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">Bellinzona</div>
+                                    <div class="stat-label">Capital</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 6: Basel Region -->
+                <div class="swiper-slide" data-region="basel" 
+                     data-lat="47.5596" data-lng="7.5886" data-zoom="9">
+                    <div class="map-container">
+                        <div id="map-basel" class="interactive-map"></div>
+                        
+                        <div class="region-header">
+                            <div class="region-flag">BS</div>
+                            <div class="region-name">Basel Region</div>
+                        </div>
+                        
+                        <!-- Map Controls -->
+                        <div class="map-controls">
+                            <button class="map-control-btn" onclick="zoomIn('basel')">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button class="map-control-btn" onclick="zoomOut('basel')">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <button class="map-control-btn" onclick="resetMap('basel')">
+                                <i class="fas fa-compress"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Information Panel -->
+                        <div class="info-panel" id="info-panel-basel">
+                            <div class="info-header">
+                                <div class="info-icon">
+                                    <i class="fas fa-flask"></i>
+                                </div>
+                                <div class="info-title">Basel</div>
+                            </div>
+                            <div class="info-content">
+                                Pharmaceutical industry center and art hub, where Switzerland, Germany, and France meet at the Rhine River.
+                            </div>
+                            <div class="info-stats">
+                                <div class="stat-item">
+                                    <div class="stat-value">200K</div>
+                                    <div class="stat-label">Population</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">24</div>
+                                    <div class="stat-label">km²</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">Basel</div>
+                                    <div class="stat-label">Capital</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 7: Central Switzerland -->
+                <div class="swiper-slide" data-region="central" 
+                     data-lat="46.9511" data-lng="8.2536" data-zoom="9">
+                    <div class="map-container">
+                        <div id="map-central" class="interactive-map"></div>
+                        
+                        <div class="region-header">
+                            <div class="region-flag">ZS</div>
+                            <div class="region-name">Central Switzerland</div>
+                        </div>
+                        
+                        <!-- Map Controls -->
+                        <div class="map-controls">
+                            <button class="map-control-btn" onclick="zoomIn('central')">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button class="map-control-btn" onclick="zoomOut('central')">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <button class="map-control-btn" onclick="resetMap('central')">
+                                <i class="fas fa-compress"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Information Panel -->
+                        <div class="info-panel" id="info-panel-central">
+                            <div class="info-header">
+                                <div class="info-icon">
+                                    <i class="fas fa-water"></i>
+                                </div>
+                                <div class="info-title">Central Switzerland</div>
+                            </div>
+                            <div class="info-content">
+                                Birthplace of the Swiss Confederacy, featuring Lake Lucerne, Mount Rigi, and historic sites like the Swiss Museum of Transport.
+                            </div>
+                            <div class="info-stats">
+                                <div class="stat-item">
+                                    <div class="stat-value">800K</div>
+                                    <div class="stat-label">Population</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">4,285</div>
+                                    <div class="stat-label">km²</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">Lucerne</div>
+                                    <div class="stat-label">Capital</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <div class="swiper-button-next"></div>
+            <div class="swiper-button-prev"></div>
+            
+            <!-- Pagination -->
+            <div class="swiper-pagination"></div>
+        </div>
+
+        <!-- Dynamic Legend -->
+        <div class="legend" id="dynamic-legend">
+            <h3 class="legend-title">Map Legend</h3>
+            <div class="legend-grid" id="legend-content">
+                <!-- Legend content will be dynamically updated -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Swiper JS -->
+    <script src="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.js"></script>
+    
+    <!-- Leaflet JS for map -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        // Global variables
+        let maps = {};
+        let markers = {};
+        let regionLayers = {};
+        let cityLayers = {};
+        let activityLayers = {};
+        let swiper;
+        let activeRegion = 'zurich';
+        let currentView = 'regions';
+        
+        // Region data
+        const regionData = {
+            zurich: {
+                center: [47.3769, 8.5417],
+                zoom: 9,
+                cities: [
+                    {name: 'Zurich', coords: [47.3769, 8.5417], population: '415K'},
+                    {name: 'Winterthur', coords: [47.4965, 8.7356], population: '110K'},
+                    {name: 'Uster', coords: [47.3488, 8.7172], population: '35K'}
+                ],
+                activities: [
+                    {name: 'Zurich Opera House', coords: [47.3665, 8.5417], type: 'culture', icon: 'fa-theater-masks'},
+                    {name: 'Lake Zurich', coords: [47.3565, 8.5517], type: 'water', icon: 'fa-water'},
+                    {name: 'Uetliberg Mountain', coords: [47.3065, 8.5117], type: 'hiking', icon: 'fa-hiking'},
+                    {name: 'Ski Arena Zurich', coords: [47.3865, 8.7617], type: 'skiing', icon: 'fa-skiing'}
+                ],
+                boundaries: [
+                    [47.5, 8.3],
+                    [47.5, 8.9],
+                    [47.2, 8.9],
+                    [47.2, 8.3]
+                ]
+            },
+            geneva: {
+                center: [46.2044, 6.1432],
+                zoom: 9,
+                cities: [
+                    {name: 'Geneva', coords: [46.2044, 6.1432], population: '200K'},
+                    {name: 'Carouge', coords: [46.1856, 6.1387], population: '22K'},
+                    {name: 'Lancy', coords: [46.1853, 6.1093], population: '35K'}
+                ],
+                activities: [
+                    {name: 'United Nations', coords: [46.2244, 6.1432], type: 'culture', icon: 'fa-un'},
+                    {name: 'Lake Geneva', coords: [46.1944, 6.1732], type: 'water', icon: 'fa-water'},
+                    {name: 'Salève Mountain', coords: [46.1744, 6.1132], type: 'hiking', icon: 'fa-hiking'},
+                    {name: 'Jet d\'Eau', coords: [46.2144, 6.1532], type: 'water', icon: 'fa-water'}
+                ],
+                boundaries: [
+                    [46.3, 6.0],
+                    [46.3, 6.3],
+                    [46.1, 6.3],
+                    [46.1, 6.0]
+                ]
+            },
+            bern: {
+                center: [46.9481, 7.4474],
+                zoom: 9,
+                cities: [
+                    {name: 'Bern', coords: [46.9481, 7.4474], population: '134K'},
+                    {name: 'Thun', coords: [46.7579, 7.6281], population: '43K'},
+                    {name: 'Biel/Bienne', coords: [47.1368, 7.2468], population: '55K'}
+                ],
+                activities: [
+                    {name: 'Old Town Bern', coords: [46.9481, 7.4474], type: 'culture', icon: 'fa-landmark'},
+                    {name: 'Gurten Mountain', coords: [46.9281, 7.3974], type: 'hiking', icon: 'fa-hiking'},
+                    {name: 'Aare River', coords: [46.9381, 7.4374], type: 'water', icon: 'fa-water'},
+                    {name: 'Zentrum Paul Klee', coords: [46.9381, 7.4974], type: 'culture', icon: 'fa-palette'}
+                ],
+                boundaries: [
+                    [47.1, 7.2],
+                    [47.1, 7.8],
+                    [46.7, 7.8],
+                    [46.7, 7.2]
+                ]
+            },
+            alps: {
+                center: [46.5197, 8.2544],
+                zoom: 8,
+                cities: [
+                    {name: 'Zermatt', coords: [46.0197, 7.7486], population: '5.8K'},
+                    {name: 'Interlaken', coords: [46.6863, 7.8632], population: '5.7K'},
+                    {name: 'Grindelwald', coords: [46.6244, 8.0413], population: '3.8K'}
+                ],
+                activities: [
+                    {name: 'Matterhorn', coords: [45.9763, 7.6586], type: 'hiking', icon: 'fa-mountain'},
+                    {name: 'Jungfraujoch', coords: [46.5498, 7.9867], type: 'skiing', icon: 'fa-skiing'},
+                    {name: 'Lake Thun', coords: [46.7063, 7.7267], type: 'water', icon: 'fa-water'},
+                    {name: 'Aletsch Glacier', coords: [46.4398, 8.0167], type: 'hiking', icon: 'fa-icicles'}
+                ],
+                boundaries: [
+                    [47.0, 7.5],
+                    [47.0, 9.5],
+                    [46.0, 9.5],
+                    [46.0, 7.5]
+                ]
+            },
+            ticino: {
+                center: [46.1881, 8.8446],
+                zoom: 9,
+                cities: [
+                    {name: 'Lugano', coords: [46.0037, 8.9511], population: '68K'},
+                    {name: 'Bellinzona', coords: [46.1949, 9.0247], population: '18K'},
+                    {name: 'Locarno', coords: [46.1699, 8.7804], population: '15K'}
+                ],
+                activities: [
+                    {name: 'Lake Lugano', coords: [45.9837, 8.9311], type: 'water', icon: 'fa-water'},
+                    {name: 'Monte Brè', coords: [45.9937, 8.9611], type: 'hiking', icon: 'fa-hiking'},
+                    {name: 'Swissminiatur', coords: [45.9837, 8.9011], type: 'culture', icon: 'fa-chess-rook'},
+                    {name: 'Gandria', coords: [45.9937, 8.9211], type: 'culture', icon: 'fa-house-chimney'}
+                ],
+                boundaries: [
+                    [46.4, 8.5],
+                    [46.4, 9.2],
+                    [45.8, 9.2],
+                    [45.8, 8.5]
+                ]
+            },
+            basel: {
+                center: [47.5596, 7.5886],
+                zoom: 9,
+                cities: [
+                    {name: 'Basel', coords: [47.5596, 7.5886], population: '175K'},
+                    {name: 'Muttenz', coords: [47.5279, 7.6358], population: '17K'},
+                    {name: 'Pratteln', coords: [47.5172, 7.6941], population: '16K'}
+                ],
+                activities: [
+                    {name: 'Basel Zoo', coords: [47.5496, 7.5786], type: 'culture', icon: 'fa-paw'},
+                    {name: 'Rhine River', coords: [47.5596, 7.5886], type: 'water', icon: 'fa-water'},
+                    {name: 'Tinguely Museum', coords: [47.5396, 7.6186], type: 'culture', icon: 'fa-palette'},
+                    {name: 'St. Alban Park', coords: [47.5496, 7.5586], type: 'hiking', icon: 'fa-tree'}
+                ],
+                boundaries: [
+                    [47.7, 7.4],
+                    [47.7, 7.8],
+                    [47.4, 7.8],
+                    [47.4, 7.4]
+                ]
+            },
+            central: {
+                center: [46.9511, 8.2536],
+                zoom: 9,
+                cities: [
+                    {name: 'Lucerne', coords: [47.0502, 8.3093], population: '82K'},
+                    {name: 'Schwyz', coords: [47.0168, 8.6536], population: '15K'},
+                    {name: 'Altdorf', coords: [46.8820, 8.6425], population: '9K'}
+                ],
+                activities: [
+                    {name: 'Lake Lucerne', coords: [47.0202, 8.2893], type: 'water', icon: 'fa-water'},
+                    {name: 'Mount Rigi', coords: [47.0602, 8.4793], type: 'hiking', icon: 'fa-mountain'},
+                    {name: 'Swiss Museum of Transport', coords: [47.0402, 8.3193], type: 'culture', icon: 'fa-train'},
+                    {name: 'Pilatus Railway', coords: [46.9802, 8.2393], type: 'culture', icon: 'fa-cable-car'}
+                ],
+                boundaries: [
+                    [47.2, 8.0],
+                    [47.2, 8.8],
+                    [46.7, 8.8],
+                    [46.7, 8.0]
+                ]
+            }
+        };
+
+        // All Swiss cities for Cities view
+        const allSwissCities = [
+            {name: 'Zurich', coords: [47.3769, 8.5417], population: '415K', canton: 'ZH'},
+            {name: 'Geneva', coords: [46.2044, 6.1432], population: '200K', canton: 'GE'},
+            {name: 'Basel', coords: [47.5596, 7.5886], population: '175K', canton: 'BS'},
+            {name: 'Bern', coords: [46.9481, 7.4474], population: '134K', canton: 'BE'},
+            {name: 'Lausanne', coords: [46.5197, 6.6323], population: '140K', canton: 'VD'},
+            {name: 'Winterthur', coords: [47.4965, 8.7356], population: '110K', canton: 'ZH'},
+            {name: 'St. Gallen', coords: [47.4245, 9.3767], population: '75K', canton: 'SG'},
+            {name: 'Lugano', coords: [46.0037, 8.9511], population: '68K', canton: 'TI'},
+            {name: 'Biel/Bienne', coords: [47.1368, 7.2468], population: '55K', canton: 'BE'},
+            {name: 'Thun', coords: [46.7579, 7.6281], population: '43K', canton: 'BE'},
+            {name: 'Lucerne', coords: [47.0502, 8.3093], population: '82K', canton: 'LU'},
+            {name: 'Köniz', coords: [46.9313, 7.4187], population: '41K', canton: 'BE'},
+            {name: 'La Chaux-de-Fonds', coords: [47.1035, 6.8328], population: '38K', canton: 'NE'},
+            {name: 'Schaffhausen', coords: [47.6974, 8.6407], population: '36K', canton: 'SH'},
+            {name: 'Fribourg', coords: [46.8065, 7.1610], population: '35K', canton: 'FR'}
+        ];
+
+        // All Swiss activities for Activities view
+        const allSwissActivities = [
+            {name: 'Matterhorn', coords: [45.9763, 7.6586], type: 'hiking', icon: 'fa-mountain', region: 'Alps'},
+            {name: 'Jungfraujoch', coords: [46.5498, 7.9867], type: 'skiing', icon: 'fa-skiing', region: 'Alps'},
+            {name: 'Lake Geneva', coords: [46.1944, 6.1732], type: 'water', icon: 'fa-water', region: 'Geneva'},
+            {name: 'Lake Zurich', coords: [47.3565, 8.5517], type: 'water', icon: 'fa-water', region: 'Zurich'},
+            {name: 'Rhine Falls', coords: [47.6788, 8.6069], type: 'water', icon: 'fa-water', region: 'Zurich'},
+            {name: 'Chillon Castle', coords: [46.4145, 6.9316], type: 'culture', icon: 'fa-chess-rook', region: 'Geneva'},
+            {name: 'Bern Old Town', coords: [46.9481, 7.4474], type: 'culture', icon: 'fa-landmark', region: 'Bern'},
+            {name: 'Swiss National Park', coords: [46.6356, 10.0333], type: 'hiking', icon: 'fa-tree', region: 'Alps'},
+            {name: 'St. Moritz', coords: [46.4970, 9.8407], type: 'skiing', icon: 'fa-skiing', region: 'Alps'},
+            {name: 'Lake Lucerne', coords: [47.0202, 8.2893], type: 'water', icon: 'fa-water', region: 'Central'},
+            {name: 'UN Geneva', coords: [46.2244, 6.1432], type: 'culture', icon: 'fa-un', region: 'Geneva'},
+            {name: 'Zermatt', coords: [46.0197, 7.7486], type: 'skiing', icon: 'fa-skiing', region: 'Alps'},
+            {name: 'Pilatus', coords: [46.9802, 8.2393], type: 'hiking', icon: 'fa-cable-car', region: 'Central'},
+            {name: 'Lake Lugano', coords: [45.9837, 8.9311], type: 'water', icon: 'fa-water', region: 'Ticino'},
+            {name: 'Basel Zoo', coords: [47.5496, 7.5786], type: 'culture', icon: 'fa-paw', region: 'Basel'},
+            {name: 'Rigi Mountain', coords: [47.0602, 8.4793], type: 'hiking', icon: 'fa-mountain', region: 'Central'},
+            {name: 'Verzasca Dam', coords: [46.3298, 8.7358], type: 'culture', icon: 'fa-archway', region: 'Ticino'},
+            {name: 'Aletsch Glacier', coords: [46.4398, 8.0167], type: 'hiking', icon: 'fa-icicles', region: 'Alps'},
+            {name: 'Jet d\'Eau', coords: [46.2144, 6.1532], type: 'water', icon: 'fa-water', region: 'Geneva'},
+            {name: 'Mount Titlis', coords: [46.7675, 8.4333], type: 'skiing', icon: 'fa-skiing', region: 'Central'}
+        ];
+
+        // Legend configurations
+        const legendConfigs = {
+            regions: [
+                {color: 'var(--primary-color)', text: 'Region Highlight'},
+                {color: 'var(--accent-color)', text: 'Major Cities'},
+                {color: '#4CAF50', text: 'Parks & Nature'},
+                {color: '#FFC107', text: 'Points of Interest'}
+            ],
+            cities: [
+                {color: 'var(--accent-color)', text: 'Major Cities (>50K)'},
+                {color: '#9C27B0', text: 'Medium Cities (20-50K)'},
+                {color: '#FF9800', text: 'Small Cities (<20K)'},
+                {color: '#607D8B', text: 'Canton Capitals'}
+            ],
+            activities: [
+                {color: '#4CAF50', text: 'Hiking & Nature'},
+                {color: '#2196F3', text: 'Water Activities'},
+                {color: '#9C27B0', text: 'Cultural Sites'},
+                {color: '#00BCD4', text: 'Skiing & Winter'}
+            ]
+        };
+
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+
+        function initializeApp() {
+            // Initialize Swiper
+            swiper = new Swiper('.swiper-container', {
+                loop: true,
+                autoplay: {
+                    delay: 6000,
+                    disableOnInteraction: false,
+                },
+                pagination: {
+                    el: '.swiper-pagination',
+                    clickable: true,
+                    dynamicBullets: true,
+                },
+                navigation: {
+                    nextEl: '.swiper-button-next',
+                    prevEl: '.swiper-button-prev',
+                },
+                effect: 'creative',
+                creativeEffect: {
+                    prev: {
+                        shadow: true,
+                        translate: ['-20%', 0, -1],
+                    },
+                    next: {
+                        translate: ['20%', 0, 1],
+                    },
+                },
+                on: {
+                    slideChange: function() {
+                        const slides = document.querySelectorAll('.swiper-slide');
+                        const activeSlide = slides[this.activeIndex];
+                        const regionName = activeSlide.dataset.region;
+                        
+                        activeRegion = regionName;
+                        
+                        // Update region header animation
+                        const regionHeader = activeSlide.querySelector('.region-name');
+                        if (regionHeader) {
+                            regionHeader.style.animation = 'none';
+                            setTimeout(() => {
+                                regionHeader.style.animation = 'fadeInUp 0.5s ease';
+                            }, 10);
+                        }
+                        
+                        // Update map view based on current view
+                        updateMapView(regionName, currentView);
+                        
+                        // Show info panel after delay
+                        setTimeout(() => {
+                            showInfoPanel(regionName);
+                        }, 500);
+                    }
+                }
+            });
+
+            // Initialize each map
+            Object.keys(regionData).forEach(region => {
+                initializeMap(region);
+            });
+
+            // Set up view toggle functionality
+            setupViewToggle();
+            
+            // Initialize legend
+            updateLegend('regions');
+            
+            // Initialize first slide
+            showInfoPanel('zurich');
+        }
+
+        // Initialize a single map
+        function initializeMap(region) {
+            const mapElement = document.getElementById(`map-${region}`);
+            if (!mapElement) return;
+
+            const data = regionData[region];
+            
+            // Create map
+            maps[region] = L.map(`map-${region}`, {
+                center: data.center,
+                zoom: data.zoom,
+                zoomControl: false
+            });
+
+            // Add tile layer
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 18
+            }).addTo(maps[region]);
+
+            // Initialize layer groups
+            regionLayers[region] = L.layerGroup().addTo(maps[region]);
+            cityLayers[region] = L.layerGroup();
+            activityLayers[region] = L.layerGroup();
+
+            // Add initial regions view
+            addRegionView(region);
+        }
+
+        // Add region view to map
+        function addRegionView(region) {
+            const data = regionData[region];
+            
+            // Clear existing layers
+            regionLayers[region].clearLayers();
+            cityLayers[region].clearLayers();
+            activityLayers[region].clearLayers();
+            
+            // Add region boundary
+            const regionPolygon = L.polygon(data.boundaries, {
+                color: '#DC143C',
+                weight: 2,
+                opacity: 0.8,
+                fillColor: '#DC143C',
+                fillOpacity: 0.2
+            }).addTo(regionLayers[region]);
+
+            // Add city markers
+            data.cities.forEach(city => {
+                const marker = L.marker(city.coords, {
+                    title: city.name,
+                    icon: L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div style="background: var(--accent-color); width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                        iconSize: [12, 12],
+                        iconAnchor: [6, 6]
+                    })
+                }).addTo(regionLayers[region]);
+
+                marker.bindPopup(`
+                    <div class="custom-popup">
+                        <h3>${city.name}</h3>
+                        <p>Population: ${city.population}</p>
+                        <div class="popup-category">City in ${region.charAt(0).toUpperCase() + region.slice(1)} Region</div>
+                    </div>
+                `);
+            });
+        }
+
+        // Add cities view to map
+        function addCitiesView(region) {
+            // Clear existing layers
+            regionLayers[region].clearLayers();
+            cityLayers[region].clearLayers();
+            activityLayers[region].clearLayers();
+            
+            // Add all Swiss cities
+            allSwissCities.forEach(city => {
+                let color = '#607D8B'; // Default gray
+                let size = 8;
+                
+                // Color code by population
+                const pop = parseInt(city.population.replace('K', '000'));
+                if (pop > 100000) {
+                    color = 'var(--accent-color)'; // Blue for major cities
+                    size = 12;
+                } else if (pop > 50000) {
+                    color = '#9C27B0'; // Purple for medium cities
+                    size = 10;
+                } else {
+                    color = '#FF9800'; // Orange for small cities
+                    size = 8;
+                }
+                
+                // Highlight canton capitals
+                if (city.canton === city.canton.toUpperCase()) {
+                    size += 2;
+                }
+                
+                const marker = L.marker(city.coords, {
+                    title: city.name,
+                    icon: L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div style="background: ${color}; width: ${size}px; height: ${size}px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                        iconSize: [size, size],
+                        iconAnchor: [size/2, size/2]
+                    })
+                }).addTo(cityLayers[region]);
+
+                marker.bindPopup(`
+                    <div class="custom-popup">
+                        <h3>${city.name}</h3>
+                        <p>Population: ${city.population}</p>
+                        <p>Canton: ${city.canton}</p>
+                        <div class="popup-category">${city.canton === city.canton.toUpperCase() ? 'Canton Capital' : 'City'}</div>
+                    </div>
+                `);
+            });
+            
+            cityLayers[region].addTo(maps[region]);
+        }
+
+        // Add activities view to map
+        function addActivitiesView(region) {
+            // Clear existing layers
+            regionLayers[region].clearLayers();
+            cityLayers[region].clearLayers();
+            activityLayers[region].clearLayers();
+            
+            // Filter activities for current region
+            const regionActivities = allSwissActivities.filter(activity => {
+                return activity.region === region.charAt(0).toUpperCase() + region.slice(1);
+            });
+            
+            // Add activity markers
+            regionActivities.forEach(activity => {
+                const color = getActivityColor(activity.type);
+                const marker = L.marker(activity.coords, {
+                    title: activity.name,
+                    icon: L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div class="activity-icon activity-${activity.type}" style="background: ${color};"><i class="fas ${activity.icon}"></i></div>`,
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    })
+                }).addTo(activityLayers[region]);
+
+                marker.bindPopup(`
+                    <div class="custom-popup">
+                        <h3>${activity.name}</h3>
+                        <p>Activity Type: ${activity.type.charAt(0).toUpperCase() + activity.type.slice(1)}</p>
+                        <div class="popup-category">${activity.region} Region</div>
+                    </div>
+                `);
+            });
+            
+            activityLayers[region].addTo(maps[region]);
+        }
+
+        // Get color for activity type
+        function getActivityColor(type) {
+            const colors = {
+                hiking: '#4CAF50',
+                water: '#2196F3',
+                culture: '#9C27B0',
+                skiing: '#00BCD4'
+            };
+            return colors[type] || '#607D8B';
+        }
+
+        // Update map view based on current view type
+        function updateMapView(region, viewType) {
+            switch(viewType) {
+                case 'regions':
+                    addRegionView(region);
+                    break;
+                case 'cities':
+                    addCitiesView(region);
+                    break;
+                case 'activities':
+                    addActivitiesView(region);
+                    break;
+            }
+        }
+
+        // Map control functions
+        function zoomIn(region) {
+            if (maps[region]) {
+                maps[region].zoomIn();
+            }
+        }
+
+        function zoomOut(region) {
+            if (maps[region]) {
+                maps[region].zoomOut();
+            }
+        }
+
+        function resetMap(region) {
+            if (maps[region] && regionData[region]) {
+                maps[region].setView(regionData[region].center, regionData[region].zoom);
+            }
+        }
+
+        // Show info panel
+        function showInfoPanel(region) {
+            // Hide all info panels
+            document.querySelectorAll('.info-panel').forEach(panel => {
+                panel.classList.remove('visible');
+            });
+            
+            // Show active panel
+            const activePanel = document.getElementById(`info-panel-${region}`);
+            if (activePanel) {
+                activePanel.classList.add('visible');
+            }
+        }
+
+        // Update legend based on view
+        function updateLegend(viewType) {
+            const legendContent = document.getElementById('legend-content');
+            const legendContainer = document.getElementById('dynamic-legend');
+            
+            // Update legend class
+            legendContainer.className = `legend ${viewType}`;
+            
+            // Clear existing content
+            legendContent.innerHTML = '';
+            
+            // Add legend items
+            legendConfigs[viewType].forEach(item => {
+                const legendItem = document.createElement('div');
+                legendItem.className = 'legend-item';
+                legendItem.innerHTML = `
+                    <div class="legend-color" style="background-color: ${item.color};"></div>
+                    <span class="legend-text">${item.text}</span>
+                `;
+                legendContent.appendChild(legendItem);
+            });
+        }
+
+        // Set up view toggle
+        function setupViewToggle() {
+            const viewButtons = document.querySelectorAll('.toggle-btn');
+            viewButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // Update active state
+                    viewButtons.forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Update current view
+                    currentView = this.dataset.view;
+                    
+                    // Update counter
+                    const viewCount = document.getElementById('view-count');
+                    const counts = {
+                        regions: '7 Regions',
+                        cities: `${allSwissCities.length} Cities`,
+                        activities: `${allSwissActivities.length} Activities`
+                    };
+                    viewCount.textContent = counts[currentView];
+                    
+                    // Update legend
+                    updateLegend(currentView);
+                    
+                    // Update all maps to show current view
+                    Object.keys(maps).forEach(region => {
+                        updateMapView(region, currentView);
+                    });
+                });
+            });
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            Object.keys(maps).forEach(region => {
+                if (maps[region]) {
+                    maps[region].invalidateSize();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
